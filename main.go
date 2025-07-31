@@ -93,6 +93,8 @@ func main() {
 	defer consumer.Close()
 
 	done := make(chan struct{})
+
+	avroConfig := avro.Config{MaxByteSliceSize: -1}.Freeze() //TODO: dsync should be updated
 	for _, partition := range partitions {
 		pc, err := consumer.ConsumePartition(*topic, partition, sarama.OffsetOldest)
 		if err != nil {
@@ -101,7 +103,7 @@ func main() {
 		go func(pc sarama.PartitionConsumer) {
 			for message := range pc.Messages() {
 				var event HbaseKafkaEvent
-				if err := avro.Unmarshal(AvroSchema, message.Value, &event); err != nil {
+				if err := avroConfig.Unmarshal(AvroSchema, message.Value, &event); err != nil {
 					log.Printf("Failed to decode message: %v", err)
 					continue
 				}
