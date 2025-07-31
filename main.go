@@ -38,8 +38,10 @@ type HbaseKafkaEvent struct {
 }
 
 type Stats struct {
-	Count      int
-	TotalBytes int
+	Count       int
+	TotalBytes  int
+	DeleteCount int
+	DeleteBytes int
 }
 
 func newKafkaConfig(user, password string) *sarama.Config {
@@ -108,8 +110,13 @@ func main() {
 				if stats[ns] == nil {
 					stats[ns] = &Stats{}
 				}
-				stats[ns].Count++
-				stats[ns].TotalBytes += size
+				if event.Delete {
+					stats[ns].DeleteCount++
+					stats[ns].DeleteBytes += size
+				} else {
+					stats[ns].Count++
+					stats[ns].TotalBytes += size
+				}
 				statsMu.Unlock()
 			}
 			done <- struct{}{}
@@ -135,7 +142,12 @@ func main() {
 				if s.Count > 0 {
 					avg = s.TotalBytes / s.Count
 				}
-				fmt.Printf("Namespace: %s, Events: %d, Avg Size: %d bytes, Total Size: %d bytes\n", ns, s.Count, avg, s.TotalBytes)
+				deleteAvg := 0
+				if s.DeleteCount > 0 {
+					deleteAvg = s.DeleteBytes / s.DeleteCount
+				}
+				fmt.Printf("Namespace: %s, Events: %d, Avg Size: %d bytes, Total Size: %d bytes, Deletes: %d, Delete Avg Size: %d bytes, Delete Total Size: %d bytes\n",
+					ns, s.Count, avg, s.TotalBytes, s.DeleteCount, deleteAvg, s.DeleteBytes)
 			}
 			statsMu.Unlock()
 		case <-sig:
