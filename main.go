@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"sync"
 	"time"
 
@@ -115,17 +116,31 @@ func main() {
 		}(pc)
 	}
 
-	fmt.Printf("Consuming messages for %d seconds...\n", *duration)
-	time.Sleep(time.Duration(*duration) * time.Second)
+	fmt.Printf("Consuming messages. Press Ctrl+C to exit. Printing stats every %d seconds...\n", *duration)
 
-	fmt.Println("Namespace statistics:")
-	statsMu.Lock()
-	for ns, s := range stats {
-		avg := 0
-		if s.Count > 0 {
-			avg = s.TotalBytes / s.Count
+	ticker := time.NewTicker(time.Duration(*duration) * time.Second)
+	defer ticker.Stop()
+
+	sig := make(chan os.Signal, 1)
+	// Listen for interrupt (Ctrl+C)
+	signal.Notify(sig, os.Interrupt)
+
+	for {
+		select {
+		case <-ticker.C:
+			fmt.Println("Namespace statistics:")
+			statsMu.Lock()
+			for ns, s := range stats {
+				avg := 0
+				if s.Count > 0 {
+					avg = s.TotalBytes / s.Count
+				}
+				fmt.Printf("Namespace: %s, Events: %d, Avg Size: %d bytes, Total Size: %d bytes\n", ns, s.Count, avg, s.TotalBytes)
+			}
+			statsMu.Unlock()
+		case <-sig:
+			fmt.Println("\nInterrupted. Exiting.")
+			return
 		}
-		fmt.Printf("Namespace: %s, Events: %d, Avg Size: %d bytes, Total Size: %d bytes\n", ns, s.Count, avg, s.TotalBytes)
 	}
-	statsMu.Unlock()
 }
