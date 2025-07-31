@@ -167,7 +167,7 @@ func main() {
 			defer f.Close()
 			w := csv.NewWriter(f)
 			defer w.Flush()
-			w.Write([]string{"Namespace", "Events", "AvgSize", "TotalSize", "Deletes", "DeleteAvgSize", "DeleteTotalSize"})
+			w.Write([]string{"Namespace", "Events", "AvgSize(bytes)", "TotalSize(bytes)", "Deletes", "DeleteAvgSize(bytes)", "DeleteTotalSize(bytes)"})
 			statsMu.Lock()
 			for ns, s := range stats {
 				avg := 0
