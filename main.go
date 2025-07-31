@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"flag"
 	"fmt"
 	"log"
@@ -157,6 +158,37 @@ func main() {
 			statsMu.Unlock()
 		case <-sig:
 			fmt.Println("\nInterrupted. Exiting.")
+			// Write stats to CSV on exit
+			f, err := os.Create("stats.csv")
+			if err != nil {
+				log.Printf("Failed to create stats.csv: %v", err)
+				return
+			}
+			defer f.Close()
+			w := csv.NewWriter(f)
+			defer w.Flush()
+			w.Write([]string{"Namespace", "Events", "AvgSize", "TotalSize", "Deletes", "DeleteAvgSize", "DeleteTotalSize"})
+			statsMu.Lock()
+			for ns, s := range stats {
+				avg := 0
+				if s.Count > 0 {
+					avg = s.TotalBytes / s.Count
+				}
+				deleteAvg := 0
+				if s.DeleteCount > 0 {
+					deleteAvg = s.DeleteBytes / s.DeleteCount
+				}
+				w.Write([]string{
+					ns,
+					fmt.Sprintf("%d", s.Count),
+					fmt.Sprintf("%d", avg),
+					fmt.Sprintf("%d", s.TotalBytes),
+					fmt.Sprintf("%d", s.DeleteCount),
+					fmt.Sprintf("%d", deleteAvg),
+					fmt.Sprintf("%d", s.DeleteBytes),
+				})
+			}
+			statsMu.Unlock()
 			return
 		}
 	}
