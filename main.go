@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -80,6 +81,7 @@ func main() {
 	}
 
 	stats := make(map[string]*Stats)
+	var statsMu sync.Mutex
 	consumer, err := sarama.NewConsumerFromClient(client)
 	if err != nil {
 		log.Fatalf("Failed to create consumer: %v", err)
@@ -101,11 +103,13 @@ func main() {
 				}
 				ns := string(event.Table)
 				size := len(message.Value)
+				statsMu.Lock()
 				if stats[ns] == nil {
 					stats[ns] = &Stats{}
 				}
 				stats[ns].Count++
 				stats[ns].TotalBytes += size
+				statsMu.Unlock()
 			}
 			done <- struct{}{}
 		}(pc)
@@ -115,6 +119,7 @@ func main() {
 	time.Sleep(time.Duration(*duration) * time.Second)
 
 	fmt.Println("Namespace statistics:")
+	statsMu.Lock()
 	for ns, s := range stats {
 		avg := 0
 		if s.Count > 0 {
@@ -122,4 +127,5 @@ func main() {
 		}
 		fmt.Printf("Namespace: %s, Events: %d, Avg Size: %d bytes, Total Size: %d bytes\n", ns, s.Count, avg, s.TotalBytes)
 	}
+	statsMu.Unlock()
 }
