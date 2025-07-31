@@ -135,8 +135,13 @@ func main() {
 	for {
 		select {
 		case <-ticker.C:
-			fmt.Println("Namespace statistics:")
+			fmt.Printf("\n[%s] Namespace statistics:\n", time.Now().Format(time.RFC3339))
 			statsMu.Lock()
+			totalEvents := 0
+			for _, s := range stats {
+				totalEvents += s.Count + s.DeleteCount
+			}
+			fmt.Printf("Total events: %d\n", totalEvents)
 			for ns, s := range stats {
 				avg := 0
 				if s.Count > 0 {
